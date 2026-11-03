@@ -1,0 +1,183 @@
+
+/* =========================================
+   Simple Dynamic Form - Main Container
+========================================= */
+
+.sdf-form-container {
+    max-width: 650px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+}
+
+/* Form Heading */
+
+.sdf-form-container h2 {
+    margin-top: 0;
+    margin-bottom: 25px;
+    color: #1f2937;
+    font-size: 26px;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* =========================================
+   Individual Form Fields
+========================================= */
+
+.sdf-form-group {
+    margin-bottom: 20px;
+}
+
+.sdf-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #374151;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* Required Asterisk */
+
+.sdf-required {
+    color: #dc2626;
+    margin-left: 3px;
+}
+
+/* Input, Select and Textarea */
+
+.sdf-form-group input,
+.sdf-form-group textarea,
+.sdf-form-group select {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    background-color: #ffffff;
+    color: #111827;
+    font-size: 15px;
+    font-family: inherit;
+    transition: border-color 0.2s ease,
+                box-shadow 0.2s ease;
+}
+
+/* Textarea */
+
+.sdf-form-group textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* Focus Effect */
+
+.sdf-form-group input:focus,
+.sdf-form-group textarea:focus,
+.sdf-form-group select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Placeholder */
+
+.sdf-form-group input::placeholder,
+.sdf-form-group textarea::placeholder {
+    color: #9ca3af;
+}
+
+/* =========================================
+   Submit Button
+========================================= */
+
+.sdf-submit-button {
+    display: block;
+    width: 100%;
+    padding: 13px 20px;
+    border: none;
+    border-radius: 7px;
+    background-color: #2563eb;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease,
+                transform 0.2s ease;
+}
+
+.sdf-submit-button:hover {
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.sdf-submit-button:active {
+    transform: translateY(0);
+}
+
+/* =========================================
+   Success Message
+========================================= */
+
+.sdf-success-message {
+    margin-bottom: 22px;
+    padding: 14px 16px;
+    border: 1px solid #86efac;
+    border-radius: 7px;
+    background-color: #f0fdf4;
+    color: #166534;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* =========================================
+   Error Messages
+========================================= */
+
+.sdf-error-message {
+    margin-top: 7px;
+    margin-bottom: 0;
+    color: #dc2626;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.sdf-general-error {
+    margin-bottom: 20px;
+    padding: 13px 15px;
+    border: 1px solid #fca5a5;
+    border-radius: 7px;
+    background-color: #fef2f2;
+    color: #991b1b;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* =========================================
+   Responsive Design
+========================================= */
+
+@media (max-width: 600px) {
+
+    .sdf-form-container {
+        margin: 20px 12px;
+        padding: 20px 16px;
+    }
+
+    .sdf-form-container h2 {
+        font-size: 22px;
+    }
+
+    .sdf-form-group input,
+    .sdf-form-group textarea,
+    .sdf-form-group select {
+        font-size: 14px;
+    }
+
+    .sdf-submit-button {
+        font-size: 15px;
+    }
+}
