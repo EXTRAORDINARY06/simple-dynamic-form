@@ -1,8 +1,8 @@
 <?php
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
-
 
 class SDF_Submission {
 
@@ -11,34 +11,110 @@ class SDF_Submission {
      */
     public static function init() {
 
+        // Normal form submission: logged-in users.
         add_action(
-            'admin_post_sdf_submit',  // Handle submissions from logged-in users.
+            'admin_post_sdf_submit',
             array( __CLASS__, 'handle_submission' )
         );
 
+        // Normal form submission: visitors.
         add_action(
-            'admin_post_nopriv_sdf_submit',   // Handle submissions from non-logged-in users.
+            'admin_post_nopriv_sdf_submit',
             array( __CLASS__, 'handle_submission' )
+        );
+
+        // AJAX submission: logged-in users.
+        add_action(
+            'wp_ajax_sdf_submit',
+            array( __CLASS__, 'handle_ajax_submission' )
+        );
+
+        // AJAX submission: visitors.
+        add_action(
+            'wp_ajax_nopriv_sdf_submit',
+            array( __CLASS__, 'handle_ajax_submission' )
         );
     }
 
+
     /**
-     * Handle submitted form data.
+     * Handle normal form submission.
      */
     public static function handle_submission() {
 
-        // Verify nonce.
+        // Verify the normal form nonce.
         if (
             ! isset( $_POST['sdf_nonce'] ) ||
             ! wp_verify_nonce(
-                sanitize_text_field( wp_unslash( $_POST['sdf_nonce'] ) ),
+                sanitize_text_field(
+                    wp_unslash( $_POST['sdf_nonce'] )
+                ),
                 'sdf_submit'
             )
         ) {
+
             wp_die(
                 'Security verification failed. Please go back and try again.'
             );
         }
+
+        // Process the submitted data.
+        $result = self::process_submission();
+
+        // Redirect back with the result.
+        self::redirect_with_result( $result );
+    }
+
+
+    /**
+     * Handle AJAX form submission.
+     */
+    public static function handle_ajax_submission() {
+
+        // Verify the AJAX nonce.
+        if (
+            ! check_ajax_referer(
+                'sdf_submit',
+                'nonce',
+                false
+            )
+        ) {
+
+            wp_send_json_error(
+                array(
+                    'message' => 'Security verification failed. Please refresh the page and try again.',
+                )
+            );
+        }
+
+        // Process the submitted data.
+        $result = self::process_submission();
+
+        // Return the result as JSON.
+        if ( ! empty( $result['success'] ) ) {
+
+            wp_send_json_success(
+                array(
+                    'message' => 'Your form has been submitted successfully!',
+                )
+            );
+        }
+
+        wp_send_json_error(
+            array(
+                'message' => $result['errors']['general']
+                    ?? reset( $result['errors'] ),
+            )
+        );
+    }
+
+
+    /**
+     * Validate submitted data and save it in the database.
+     *
+     * Shared by normal and AJAX submissions.
+     */
+    private static function process_submission() {
 
         $fields = SDF_Fields::get_fields();
 
@@ -194,14 +270,13 @@ class SDF_Submission {
             }
         }
 
-        // Stop submission if validation fails.
+        // Stop if validation fails.
         if ( ! empty( $errors ) ) {
 
-            self::redirect_with_result(
-                array(
-                    'errors'     => $errors,
-                    'old_values' => $clean_data,
-                )
+            return array(
+                'success'    => false,
+                'errors'     => $errors,
+                'old_values' => $clean_data,
             );
         }
 
@@ -214,15 +289,18 @@ class SDF_Submission {
             'full_name' => $clean_data['full_name'] ?? '',
             'email'     => $clean_data['email'] ?? '',
             'phone'     => $clean_data['phone'] ?? '',
-            'age'       => isset( $clean_data['age'] ) && '' !== $clean_data['age']
-                ? (int) $clean_data['age']
-                : null,
+
+            'age'       => isset( $clean_data['age'] ) &&
+                '' !== $clean_data['age']
+                    ? (int) $clean_data['age']
+                    : null,
+
             'website'   => $clean_data['website'] ?? '',
             'city'      => $clean_data['city'] ?? '',
             'message'   => $clean_data['message'] ?? '',
         );
 
-        // Insert the submission into the database. 
+        // Insert the submission into the database.
         $inserted = $wpdb->insert(
             $table_name,
             $database_data,
@@ -240,26 +318,26 @@ class SDF_Submission {
         // Handle database insertion failure.
         if ( false === $inserted ) {
 
-            self::redirect_with_result(
-                array(
-                    'errors' => array(
-                        'general' => 'Something went wrong while saving your submission. Please try again.',
-                    ),
-                    'old_values' => $clean_data,
-                )
+            return array(
+                'success' => false,
+                'errors'  => array(
+                    'general' => 'Something went wrong while saving your submission. Please try again.',
+                ),
+                'old_values' => $clean_data,
             );
         }
 
-        // Redirect after successful submission.
-        self::redirect_with_result(
-            array(
-                'success' => true,
-            )
+        // Return successful result.
+        return array(
+            'success' => true,
         );
     }
 
+
     /**
      * Redirect back with a temporary result.
+     *
+     * Used only by normal form submission.
      */
     private static function redirect_with_result( $result ) {
 

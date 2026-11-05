@@ -1,6 +1,5 @@
 (function () {
     'use strict';
-
     document.addEventListener('DOMContentLoaded', function () {
 
         // Find all Simple Dynamic Forms on the page.
@@ -231,8 +230,46 @@
                 return true;
             }
 
-            // Validate all fields when the user submits the form.
+            // Display success or server-side error messages.
+            function showFormMessage(message, isSuccess) {
+
+                let messageBox = form.querySelector(
+                    '.sdf-response-message'
+                );
+
+                if (!messageBox) {
+
+                    messageBox = document.createElement('p');
+
+                    messageBox.className =
+                        'sdf-response-message';
+
+                    messageBox.setAttribute('role', 'status');
+
+                    form.parentNode.insertBefore(
+                        messageBox,
+                        form
+                    );
+                }
+
+                messageBox.textContent = message;
+
+                messageBox.classList.toggle(
+                    'sdf-success-message',
+                    isSuccess
+                );
+
+                messageBox.classList.toggle(
+                    'sdf-error-message',
+                    !isSuccess
+                );
+            }
+
+            // Validate fields and submit the form using AJAX.
             form.addEventListener('submit', function (event) {
+
+                // Stop the browser's normal form submission.
+                event.preventDefault();
 
                 let isFormValid = true;
                 let firstInvalidField = null;
@@ -264,13 +301,101 @@
                     }
                 });
 
-                // Stop submission if any field is invalid.
+                // Stop here if validation fails.
                 if (!isFormValid) {
 
-                    event.preventDefault();
-
                     firstInvalidField.focus();
+                    return;
                 }
+
+                // Find the submit button.
+                const submitButton = form.querySelector(
+                    '[type="submit"]'
+                );
+
+                // Prevent multiple submissions.
+                if (submitButton) {
+                    submitButton.disabled = true;
+                }
+
+                // Display a temporary submission message.
+                showFormMessage(
+                    'Submitting your form...',
+                    true
+                );
+
+                // Send form data to WordPress using jQuery AJAX.
+                jQuery.ajax({
+
+                    // WordPress AJAX endpoint.
+                    url: sdf_ajax.ajax_url,
+
+                    // Use POST to send form data.
+                    method: 'POST',
+
+                    // Collect form data and add WordPress AJAX parameters.
+                    data: jQuery(form).serialize() +
+                        '&action=sdf_submit&nonce=' +
+                        encodeURIComponent(sdf_ajax.nonce),
+
+                    // Expect a JSON response from PHP.
+                    dataType: 'json',
+
+                    // Runs when the AJAX request succeeds at HTTP level.
+                    success: function (response) {
+
+                        if (response.success) {
+
+                            showFormMessage(
+                                response.data.message,
+                                true
+                            );
+
+                            // Clear the form after successful submission.
+                            form.reset();
+
+                            // Remove previous field validation errors.
+                            fields.forEach(function (field) {
+                                removeError(field);
+                            });
+
+                        } else {
+
+                            // Display the error returned by PHP.
+                            showFormMessage(
+                                response.data.message,
+                                false
+                            );
+                        }
+                    },
+
+                    // Runs when the HTTP request fails.
+                    error: function (xhr) {
+
+                        let message =
+                            'Something went wrong. Please try again.';
+
+                        if (
+                            xhr.responseJSON &&
+                            xhr.responseJSON.data &&
+                            xhr.responseJSON.data.message
+                        ) {
+                            message = xhr.responseJSON.data.message;
+                        }
+
+                        showFormMessage(message, false);
+                    },
+
+                    // Runs after success or error.
+                    complete: function () {
+
+                        // Allow the user to submit again.
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                        }
+                    }
+
+                });
 
             });
 

@@ -12,7 +12,7 @@ class SDF_Admin {
      */
     public static function init() {
 
-        add_action( 'admin_menu', array( 'SDF_Admin', 'add_admin_menu' ) );
+        add_action( 'admin_menu', array( 'SDF_Admin', 'add_admin_menu' ));
 
         add_action( 'admin_init', array( 'SDF_Admin', 'register_settings' ));
 

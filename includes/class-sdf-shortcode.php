@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class SDF_Shortcode {
 
     /**
-     * Register shortcode and frontend hooks.
+     * Initialize shortcode and frontend assets.
      */
     public static function init() {
 
@@ -23,7 +23,8 @@ class SDF_Shortcode {
     }
 
     /**
-     * Load frontend CSS and JavaScript when shortcode is present....
+     * Load frontend CSS and JavaScript only
+     * on pages containing our shortcode.
      */
     public static function enqueue_assets() {
 
@@ -32,13 +33,11 @@ class SDF_Shortcode {
         if (
             ! is_a( $post, 'WP_Post' ) ||
             ! has_shortcode( $post->post_content, 'sdf_form' )
-        ) 
-        {
+        ) {
             return;
         }
 
-
-        // frontend CSS  form which the user are seeing 
+        // Load frontend CSS.
         wp_enqueue_style(
             'sdf-form-css',
             SDF_PLUGIN_URL . 'assets/form.css',
@@ -46,19 +45,28 @@ class SDF_Shortcode {
             SDF_VERSION
         );
 
-
-        // Frontend JavaScript for the form like showing error messages, validation, etc. which the user are typing in the form and also for the success message after submission       
-         wp_enqueue_script(
+        // Load frontend JavaScript with jQuery dependency.
+        wp_enqueue_script(
             'sdf-form-js',
             SDF_PLUGIN_URL . 'assets/form.js',
-            array(),
+            array( 'jquery' ),
             SDF_VERSION,
             true
+        );
+
+        // Pass AJAX URL and security nonce to JavaScript.
+        wp_localize_script(
+            'sdf-form-js',
+            'sdf_ajax',
+            array(
+                'ajax_url' => admin_url( 'admin-ajax.php' ),
+                'nonce'    => wp_create_nonce( 'sdf_submit' )
+            )
         );
     }
 
     /**
-     * Display the dynamic form.
+     * Render frontend form.
      */
     public static function render_form() {
 
@@ -69,63 +77,43 @@ class SDF_Shortcode {
             SDF_Fields::get_default_settings()
         );
 
-        // Retrieve the temporary result token.
-        $token = isset( $_GET['sdf_result'] )
-            ? sanitize_key( wp_unslash( $_GET['sdf_result'] ) )
-            : '';
+        $result = null;
 
-        // Retrieve submission result.
-        $result = $token
-            ? get_transient( 'sdf_result_' . $token )
-            : false;
+        // Support the existing normal POST redirect flow.
+        if ( isset( $_GET['sdf_result'] ) ) {
 
-        // Delete the transient after retrieving it.
-        if ( $token && false !== $result ) {
-            delete_transient( 'sdf_result_' . $token );
+            $token = sanitize_text_field(
+                wp_unslash( $_GET['sdf_result'] )
+            );
+
+            $result = get_transient(
+                'sdf_result_' . $token
+            );
+
+            delete_transient(
+                'sdf_result_' . $token
+            );
         }
 
-        // Retrieve validation errors.
-        $errors = (
-            is_array( $result ) &&
-            ! empty( $result['errors'] )
-        )
-            ? $result['errors']
-            : array();
-
-        // Retrieve previously submitted values.
-        $old_values = (
-            is_array( $result ) &&
-            ! empty( $result['old_values'] )
-        )
-            ? $result['old_values']
-            : array();
-
-        // Check submission success.
-        $success = (
-            is_array( $result ) &&
-            ! empty( $result['success'] )
-        );
-
         ob_start();
-
         ?>
 
         <div class="sdf-form-container">
 
-            <h2>Contact Form</h2>
+            <?php if ( ! empty( $result['errors'] ) ) : ?>
 
-            <?php if ( $success ) : ?>
-
-                <div class="sdf-success-message" role="status">
-                    Your form has been submitted successfully!
+                <div class="sdf-response-message sdf-error-message" role="alert">
+                    <?php
+                    foreach ( $result['errors'] as $error ) {
+                        echo '<p>' . esc_html( $error ) . '</p>';
+                    }
+                    ?>
                 </div>
 
-            <?php endif; ?>
+            <?php elseif ( ! empty( $result['success'] ) ) : ?>
 
-            <?php if ( ! empty( $errors['general'] ) ) : ?>
-
-                <div class="sdf-general-error" role="alert">
-                    <?php echo esc_html( $errors['general'] ); ?>
+                <div class="sdf-response-message sdf-success-message" role="status">
+                    <?php echo esc_html( 'Your form has been submitted successfully!' ); ?>
                 </div>
 
             <?php endif; ?>
@@ -137,83 +125,60 @@ class SDF_Shortcode {
                 novalidate
             >
 
-                <!-- Submission action -->
                 <input
                     type="hidden"
                     name="action"
                     value="sdf_submit"
                 >
 
-                <!-- Security nonce -->
-                <?php
-                wp_nonce_field(
-                    'sdf_submit',
-                    'sdf_nonce'
-                );
-                ?>
+                <?php wp_nonce_field( 'sdf_submit', 'sdf_nonce' ); ?>
 
                 <?php foreach ( $fields as $key => $field ) : ?>
 
                     <?php
-
-                    // Check whether the field should be displayed.
-                    $show = isset( $settings[ $key ]['show'] )
-                        ? (int) $settings[ $key ]['show']
-                        : 1;
-
-                    if ( 1 !== $show ) {
+                    if ( empty( $settings[ $key ]['show'] ) ) {
                         continue;
                     }
 
-                    // Check whether the field is required.
-                    $required = isset( $settings[ $key ]['required'] )
-                        ? (int) $settings[ $key ]['required']
-                        : ( ! empty( $field['required'] ) ? 1 : 0 );
+                    $is_required = ! empty(
+                        $settings[ $key ]['required']
+                    );
 
-                    // Previously submitted value.
-                    $value = isset( $old_values[ $key ] )
-                        ? $old_values[ $key ]
+                    $old_value = isset( $result['old_values'][ $key ] )
+                        ? $result['old_values'][ $key ]
                         : '';
-
-                    // Field-specific validation error.
-                    $field_error = isset( $errors[ $key ] )
-                        ? $errors[ $key ]
-                        : '';
-
                     ?>
 
                     <div class="sdf-form-group">
 
-                        <label for="sdf_<?php echo esc_attr( $key ); ?>">
-
+                        <label for="sdf-<?php echo esc_attr( $key ); ?>">
                             <?php echo esc_html( $field['label'] ); ?>
 
-                            <?php if ( $required ) : ?>
-                                <span class="sdf-required">*</span>
+                            <?php if ( $is_required ) : ?>
+                                <span aria-hidden="true">*</span>
                             <?php endif; ?>
-
                         </label>
 
                         <?php if ( 'textarea' === $field['type'] ) : ?>
 
                             <textarea
-                                id="sdf_<?php echo esc_attr( $key ); ?>"
+                                id="sdf-<?php echo esc_attr( $key ); ?>"
                                 name="sdf_submission[<?php echo esc_attr( $key ); ?>]"
-                                placeholder="<?php echo esc_attr( $field['placeholder'] ); ?>"
-                                <?php echo $required ? 'required' : ''; ?>
-                                maxlength="<?php echo esc_attr( $field['max_length'] ?? 1000 ); ?>"
-                                aria-invalid="<?php echo $field_error ? 'true' : 'false'; ?>"
-                            ><?php echo esc_textarea( $value ); ?></textarea>
+                                placeholder="<?php echo esc_attr( $field['placeholder'] ?? '' ); ?>"
+                                maxlength="<?php echo esc_attr( $field['max_length'] ?? '' ); ?>"
+                                <?php echo $is_required ? 'required' : ''; ?>
+                                aria-invalid="false"
+                            ><?php echo esc_textarea( $old_value ); ?></textarea>
 
                         <?php else : ?>
 
                             <input
                                 type="<?php echo esc_attr( $field['type'] ); ?>"
-                                id="sdf_<?php echo esc_attr( $key ); ?>"
+                                id="sdf-<?php echo esc_attr( $key ); ?>"
                                 name="sdf_submission[<?php echo esc_attr( $key ); ?>]"
-                                value="<?php echo esc_attr( $value ); ?>"
-                                placeholder="<?php echo esc_attr( $field['placeholder'] ); ?>"
-                                <?php echo $required ? 'required' : ''; ?>
+                                value="<?php echo esc_attr( $old_value ); ?>"
+                                placeholder="<?php echo esc_attr( $field['placeholder'] ?? '' ); ?>"
+                                <?php echo $is_required ? 'required' : ''; ?>
 
                                 <?php if ( isset( $field['max_length'] ) ) : ?>
                                     maxlength="<?php echo esc_attr( $field['max_length'] ); ?>"
@@ -235,16 +200,8 @@ class SDF_Shortcode {
                                     pattern="<?php echo esc_attr( $field['pattern'] ); ?>"
                                 <?php endif; ?>
 
-                                aria-invalid="<?php echo $field_error ? 'true' : 'false'; ?>"
+                                aria-invalid="false"
                             >
-
-                        <?php endif; ?>
-
-                        <?php if ( $field_error ) : ?>
-
-                            <p class="sdf-error-message" role="alert">
-                                <?php echo esc_html( $field_error ); ?>
-                            </p>
 
                         <?php endif; ?>
 
@@ -252,10 +209,7 @@ class SDF_Shortcode {
 
                 <?php endforeach; ?>
 
-                <button
-                    type="submit"
-                    class="sdf-submit-button"
-                >
+                <button type="submit" class="sdf-submit-button">
                     Submit
                 </button>
 
@@ -267,5 +221,4 @@ class SDF_Shortcode {
 
         return ob_get_clean();
     }
-
 }
