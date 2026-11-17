@@ -7,9 +7,7 @@
  * Text Domain: simple-dynamic-form
  */
 
-
 // Main entry point of plugin
-
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -21,8 +19,6 @@ define( 'SDF_PLUGIN_FILE', __FILE__ );
 define( 'SDF_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SDF_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
-
-
 // Include required plugin files
 require_once SDF_PLUGIN_DIR . 'includes/class-sdf-fields.php';
 require_once SDF_PLUGIN_DIR . 'includes/class-sdf-activator.php';
@@ -30,6 +26,8 @@ require_once SDF_PLUGIN_DIR . 'includes/class-sdf-admin.php';
 require_once SDF_PLUGIN_DIR . 'includes/class-sdf-shortcode.php';
 require_once SDF_PLUGIN_DIR . 'includes/class-sdf-submission.php';
 
+// Include REST API class
+require_once SDF_PLUGIN_DIR . 'includes/class-sdf-rest-api.php';
 
 // Activation hook
 register_activation_hook(
@@ -41,3 +39,6 @@ register_activation_hook(
 SDF_Admin::init();
 SDF_Shortcode::init();
 SDF_Submission::init();
+
+// Initialize REST API
+SDF_REST_API::init();
